@@ -54,11 +54,22 @@ const FALLBACK_SIDEBAR_HTML = `<!DOCTYPE html>
   </body>
 </html>`;
 
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('🧪 Pruebas Sidebar')
-    .addItem('Abrir panel', 'showSidebar')
-    .addToUi();
+function onOpen(e) {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('🧪 Pruebas Sidebar')
+      .addItem('Abrir panel', 'showSidebar')
+      .addToUi();
+  } catch (error) {
+    if (!e) {
+      console.warn(
+        'No se pudo crear el menú del sidebar porque SpreadsheetApp.getUi() no está disponible en este contexto.',
+        error,
+      );
+      return;
+    }
+    throw error;
+  }
 }
 
 function showSidebar(templateName) {
