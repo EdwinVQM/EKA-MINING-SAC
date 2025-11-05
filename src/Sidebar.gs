@@ -1,5 +1,5 @@
 const SIDEBAR_TITLE = 'Panel de pruebas';
-const SIDEBAR_TEMPLATES = ['SidebarMain', 'Sidebar'];
+const SIDEBAR_TEMPLATES = ['Sidebar'];
 const FALLBACK_SIDEBAR_HTML = `<!DOCTYPE html>
 <html lang="es">
   <head>
@@ -144,6 +144,3 @@ function logNoteOnRow(note) {
   };
 }
 
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
-}
