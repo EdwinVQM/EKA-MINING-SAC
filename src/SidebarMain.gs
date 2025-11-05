@@ -8,7 +8,7 @@ function onOpen() {
 }
 
 function showSidebar() {
-  const template = HtmlService.createTemplateFromFile('Sidebar');
+  const template = HtmlService.createTemplateFromFile('SidebarMain');
   template.sheetName = SpreadsheetApp.getActiveSheet().getName();
   const htmlOutput = template
     .evaluate()
