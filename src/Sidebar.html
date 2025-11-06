@@ -74,7 +74,7 @@
   </head>
   <body>
     <h1>Panel de pruebas</h1>
-    <p>Hoja activa: <strong><?= sheetName ?></strong></p>
+    <p>Hoja activa: <strong id="sheet-name" aria-live="polite">Cargando…</strong></p>
 
     <div class="section">
       <h2>Fila activa</h2>
@@ -91,6 +91,25 @@
     </div>
 
     <script>
+      document.addEventListener('DOMContentLoaded', initializeSidebar);
+
+      function initializeSidebar() {
+        google.script.run
+          .withSuccessHandler(updateSheetName)
+          .withFailureHandler((error) => {
+            console.error(error);
+            updateSheetName('No disponible');
+          })
+          .getActiveSheetName();
+      }
+
+      function updateSheetName(name) {
+        const label = document.getElementById('sheet-name');
+        if (label) {
+          label.textContent = name || 'Sin nombre';
+        }
+      }
+
       function fetchActiveRow() {
         setLoading(true);
         setStatus('Consultando fila activa…', { targetId: 'row-status' });

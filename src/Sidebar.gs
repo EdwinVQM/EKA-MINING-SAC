@@ -1,7 +1,7 @@
 const SIDEBAR_TITLE = 'Panel de pruebas';
-const SIDEBAR_TEMPLATES = ['Sidebar'];
+const SIDEBAR_FILE = 'Sidebar';
 /**
- * Plantilla HTML utilizada cuando no se encuentra ningún archivo válido.
+ * Plantilla HTML utilizada cuando no se encuentra la vista principal.
  * Se mantiene inline para asegurar que siempre exista un panel mínimo.
  */
 const FALLBACK_SIDEBAR_HTML = `<!DOCTYPE html>
@@ -48,15 +48,13 @@ const FALLBACK_SIDEBAR_HTML = `<!DOCTYPE html>
   <body>
     <div class="box">
       <h1>Panel no disponible</h1>
-      <p class="error">No se pudo cargar la plantilla <span class="template">{{lastTemplate}}</span>.</p>
-      <p>Se intentó abrir: {{templates}}.</p>
-      <p>Verifica que alguno de esos archivos exista en el proyecto de Apps Script y vuelve a ejecutar el menú.</p>
+      <p class="error">No se pudo cargar la plantilla <span class="template">{{template}}</span>.</p>
       <p><strong>Último error recibido:</strong> {{error}}</p>
       <p>Hoja activa: <strong>{{sheetName}}</strong></p>
       <ol>
-        <li>Confirma que el repositorio contenga los archivos HTML listados arriba.</li>
-        <li>Ejecuta <code>clasp push</code> desde la carpeta del proyecto (donde está <code>.clasp.json</code>).</li>
-        <li>Recarga la hoja de cálculo y vuelve a abrir el sidebar.</li>
+        <li>Confirma que el archivo exista en el proyecto de Apps Script y que no haya duplicados con nombres parecidos.</li>
+        <li>Si trabajas con Clasp, ejecuta <code>clasp push</code> desde la carpeta donde está <code>.clasp.json</code>.</li>
+        <li>Recarga la hoja de cálculo y vuelve a abrir el panel.</li>
       </ol>
     </div>
   </body>
@@ -80,44 +78,25 @@ function onOpen(e) {
   }
 }
 
-function showSidebar(templateName) {
+function showSidebar() {
   const ui = SpreadsheetApp.getUi();
   const sheetName = SpreadsheetApp.getActiveSheet().getName();
-  const attemptedTemplates = [];
-  const candidates = getTemplateCandidates(templateName);
   let htmlOutput;
   let lastError;
-  let lastTemplate;
 
-  for (const candidate of candidates) {
-    attemptedTemplates.push(`${candidate}.html`);
-    try {
-      const template = HtmlService.createTemplateFromFile(candidate);
-      template.sheetName = sheetName;
-      htmlOutput = template.evaluate();
-      lastTemplate = `${candidate}.html`;
-      break;
-    } catch (error) {
-      console.warn(`No se pudo cargar ${candidate}.html`, error);
-      lastError = error;
-      lastTemplate = `${candidate}.html`;
-    }
+  try {
+    htmlOutput = HtmlService.createHtmlOutputFromFile(SIDEBAR_FILE);
+  } catch (error) {
+    console.warn(`No se pudo cargar ${SIDEBAR_FILE}.html`, error);
+    lastError = error;
   }
 
   if (!htmlOutput) {
-    console.error('No se pudo renderizar ninguna plantilla del sidebar.', lastError);
-    const message = lastError && lastError.message ? lastError.message : String(lastError || 'Plantilla no encontrada');
-    const templateListHtml = attemptedTemplates
-      .map((name) => `<code>${escapeHtml(name)}</code>`)
-      .join(', ');
-    const lastTemplateHtml = lastTemplate
-      ? escapeHtml(lastTemplate)
-      : '<em>ninguna</em>';
+    const message = lastError && lastError.message ? lastError.message : 'Plantilla no encontrada';
     const html = FALLBACK_SIDEBAR_HTML
+      .replace(/{{template}}/g, escapeHtml(`${SIDEBAR_FILE}.html`))
       .replace(/{{error}}/g, escapeHtml(message))
-      .replace(/{{sheetName}}/g, escapeHtml(sheetName))
-      .replace(/{{templates}}/g, templateListHtml || '<em>sin registros</em>')
-      .replace(/{{lastTemplate}}/g, lastTemplateHtml);
+      .replace(/{{sheetName}}/g, escapeHtml(sheetName));
     htmlOutput = HtmlService.createHtmlOutput(html);
   }
 
@@ -125,42 +104,8 @@ function showSidebar(templateName) {
   ui.showSidebar(htmlOutput);
 }
 
-function getTemplateCandidates(templateName) {
-  const providedTemplates = Array.isArray(templateName)
-    ? templateName
-    : [templateName].filter((name) => name !== undefined && name !== null);
-
-  const normalized = providedTemplates
-    .map(normalizeTemplateName)
-    .filter(Boolean);
-
-  const baseCandidates = normalized.length ? normalized : SIDEBAR_TEMPLATES;
-  const expanded = [];
-
-  for (const name of baseCandidates) {
-    if (!name) {
-      continue;
-    }
-    const variants = new Set([name, name.toLowerCase(), name.toUpperCase()]);
-    variants.forEach((value) => {
-      const normalizedValue = normalizeTemplateName(value);
-      if (normalizedValue) {
-        expanded.push(normalizedValue);
-      }
-    });
-  }
-
-  return Array.from(new Set(expanded));
-}
-
-function normalizeTemplateName(name) {
-  if (typeof name !== 'string') {
-    return '';
-  }
-  return name
-    .trim()
-    .replace(/\.html?$/i, '')
-    .trim();
+function getActiveSheetName() {
+  return SpreadsheetApp.getActiveSheet().getName();
 }
 
 function escapeHtml(value) {
