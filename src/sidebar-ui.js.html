@@ -1,0 +1,188 @@
+<!-- sidebar-ui.js.html -->
+<script>
+/**
+ * Módulo de interfaz principal del Sidebar de Invitaciones
+ * Autor: Liber Q. (EKA MINING)
+ */
+
+document.addEventListener('DOMContentLoaded', () => initSidebar());
+
+function initSidebar() {
+  window.state = { currentRow: null, sections: [], values: {} };
+  bindButtons();
+  loadSidebarData();
+}
+
+function bindButtons() {
+  const btns = {
+    reload: document.getElementById('reloadButton'),
+    dictionary: document.getElementById('dictionaryButton'),
+    accept: document.getElementById('acceptButton'),
+    update: document.getElementById('updateButton'),
+    cancel: document.getElementById('cancelButton'),
+    delete: document.getElementById('deleteButton'),
+    sync: document.getElementById('syncButton'),
+  };
+
+  if (btns.reload) btns.reload.addEventListener('click', loadSidebarData);
+  if (btns.dictionary) btns.dictionary.addEventListener('click', openDictionarySheet);
+  if (btns.accept) btns.accept.addEventListener('click', handleAccept);
+  if (btns.update) btns.update.addEventListener('click', handleUpdate);
+  if (btns.cancel) btns.cancel.addEventListener('click', clearSidebar);
+  if (btns.delete) btns.delete.addEventListener('click', handleDeleteRow);
+  if (btns.sync) btns.sync.addEventListener('click', handleSupabaseSync);
+}
+
+function loadSidebarData() {
+  showLoading("Cargando datos...");
+  google.script.run.withSuccessHandler(renderSidebar).withFailureHandler(showError).getActiveInvitationData();
+}
+
+function renderSidebar(data) {
+  hideLoading();
+  if (!data || !data.sections?.length) {
+    showAlert("No hay invitaciones activas.", "warning");
+    return;
+  }
+
+  state.currentRow = data.rowNumber;
+  state.sections = data.sections;
+  state.values = data.values || {};
+
+  renderSections(data.sections);
+  document.getElementById('formCard').classList.remove('d-none');
+  document.getElementById('actionsCard').classList.remove('d-none');
+}
+
+function renderSections(sections) {
+  const tabs = document.getElementById('sectionTabs');
+  const content = document.getElementById('sectionTabContent');
+  tabs.innerHTML = '';
+  content.innerHTML = '';
+
+  sections.forEach((section, i) => {
+    const tabId = `tab-${i}`;
+    const btn = document.createElement('button');
+    btn.className = `nav-link ${i === 0 ? 'active' : ''}`;
+    btn.id = `${tabId}-tab`;
+    btn.dataset.bsToggle = 'pill';
+    btn.dataset.bsTarget = `#${tabId}`;
+    btn.type = 'button';
+    btn.textContent = section.title;
+    tabs.appendChild(btn);
+
+    const pane = document.createElement('div');
+    pane.className = `tab-pane fade ${i === 0 ? 'show active' : ''}`;
+    pane.id = tabId;
+    section.fields.forEach(f => pane.appendChild(renderField(f)));
+    content.appendChild(pane);
+  });
+}
+
+function renderField(f) {
+  const group = document.createElement('div');
+  group.className = 'mb-3';
+  const label = document.createElement('label');
+  label.textContent = f.header;
+  label.className = 'form-label fw-semibold';
+  group.appendChild(label);
+
+  const value = state.values[f.alias] ?? '';
+  let input;
+  switch (f.valueType) {
+    case 'select':
+      input = document.createElement('select');
+      input.className = 'form-select';
+      (f.options || []).forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = opt;
+        if (opt === value) o.selected = true;
+        input.appendChild(o);
+      });
+      break;
+    case 'textarea':
+      input = document.createElement('textarea');
+      input.className = 'form-control';
+      input.rows = 2;
+      input.value = value;
+      break;
+    default:
+      input = document.createElement('input');
+      input.type = f.valueType || 'text';
+      input.className = 'form-control';
+      input.value = value;
+  }
+  input.dataset.alias = f.alias;
+  input.addEventListener('change', e => (state.values[f.alias] = e.target.value));
+  group.appendChild(input);
+  return group;
+}
+
+function handleAccept() {
+  showLoading("Guardando...");
+  google.script.run.withSuccessHandler(() => {
+    hideLoading();
+    showAlert("Invitación guardada correctamente.", "success");
+  }).withFailureHandler(showError).saveInvitation(state.values);
+}
+
+function handleUpdate() {
+  showLoading("Actualizando...");
+  google.script.run.withSuccessHandler(() => {
+    hideLoading();
+    showAlert("Actualizado correctamente.", "info");
+  }).withFailureHandler(showError).updateInvitation(state.values);
+}
+
+function handleDeleteRow() {
+  if (!confirm("¿Eliminar esta invitación?")) return;
+  showLoading("Eliminando...");
+  google.script.run.withSuccessHandler(() => {
+    hideLoading();
+    clearSidebar();
+    showAlert("Fila eliminada.", "danger");
+  }).withFailureHandler(showError).deleteActiveInvitation(state.currentRow);
+}
+
+function handleSupabaseSync() {
+  showLoading("Sincronizando con Supabase...");
+  google.script.run.withSuccessHandler(() => {
+    hideLoading();
+    showAlert("Datos sincronizados con Supabase.", "success");
+  }).withFailureHandler(showError).syncToSupabase();
+}
+
+function clearSidebar() {
+  document.getElementById('formCard').classList.add('d-none');
+  document.getElementById('actionsCard').classList.add('d-none');
+  state.currentRow = null;
+  state.values = {};
+  state.sections = [];
+}
+
+function openDictionarySheet() {
+  google.script.run.openColumnDictionarySheet();
+}
+
+function showAlert(msg, type = "primary") {
+  const el = document.getElementById('alertContainer');
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+}
+
+function showLoading(text) {
+  const overlay = document.getElementById('loadingOverlay');
+  const msg = document.getElementById('loadingMessage');
+  msg.textContent = text || "Cargando...";
+  overlay.classList.remove('d-none');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('d-none');
+}
+
+function showError(err) {
+  hideLoading();
+  showAlert(`⚠️ Error: ${err.message || err}`, "danger");
+}
+</script>
